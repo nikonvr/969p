@@ -5,22 +5,21 @@ import random
 import time
 import io
 
-# --- Paramètres Globaux (modifiés pour la nouvelle logique) ---
+# --- Paramètres Globaux ---
 flowersizeratiomin = 0.005
 flowersizeratiomax = 0.02
 
-num_dots = 10000 # Reduced for faster background in Streamlit context
-nbsegments = 10 # Number of flower-stem systems
-nbsubsegments = 15 # Segments per stem
-nbserror666 = 50 # Number of error texts
+num_dots = 10000 
+nbsegments = 10 
+nbsubsegments = 15 
+nbserror666 = 50 
 
 # --- Constantes Pygame ---
-# FPS is effectively controlled by Streamlit's refresh rate + time.sleep()
-STREAMLIT_FPS = 30 # Target FPS for Streamlit refresh
+STREAMLIT_FPS = 30 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
-# --- Variables globales pour dimensions et échelle (seront définies dans main) ---
+# --- Variables globales pour dimensions et échelle ---
 SCREEN_WIDTH_REF = 0
 SCREEN_HEIGHT_REF = 0
 REFERENCE_DIMENSION = 0
@@ -49,7 +48,6 @@ def rgb_01_to_pygame_color(rgb_0_1_tuple, alpha=255):
     a = np.clip(int(alpha), 0, 255)
     return (int(r * 255), int(g * 255), int(b * 255), a)
 
-# --- Fonctions de Conversion et d'Échelle ---
 def update_screen_constants(width, height):
     global SCREEN_WIDTH_REF, SCREEN_HEIGHT_REF, REFERENCE_DIMENSION
     global NORM_SCALING_FACTOR_X, NORM_SCALING_FACTOR_Y
@@ -78,7 +76,6 @@ def scale_dimension_relative_to_pygame(relative_dimension):
     if REFERENCE_DIMENSION == 0: return 1
     return max(1, int(relative_dimension * REFERENCE_DIMENSION))
 
-# --- Génération de Données pour la Tige ---
 def generate_branch_segments_from_point_norm(start_x_norm, start_y_norm, initial_angle_rad, num_segments_to_generate):
     branch_segment_data = []
     x_norm, y_norm = start_x_norm, start_y_norm
@@ -101,7 +98,6 @@ def generate_branch_segments_from_point_norm(start_x_norm, start_y_norm, initial
         })
     return branch_segment_data
 
-# --- Fonctions de Dessin (Pygame) ---
 BACKGROUND_PALETTES_01 = [
     [(0.2,0.1,0.05),(0.1,0.05,0.02),(0.4,0.25,0.1),(0.5,0.3,0.15),(0.6,0.3,0.1),(0.7,0.4,0.2),(0.8,0.5,0.2),(0.85,0.6,0.3),(0.1,0.2,0.05),(0.2,0.3,0.1),(0.3,0.4,0.1),(0.4,0.5,0.2),(0.05,0.05,0.05),(0.1,0.1,0.1),(0.85,0.8,0.7),(0.9,0.85,0.75)],
     [(0.1,0.15,0.05),(0.15,0.2,0.1),(0.2,0.3,0.1),(0.3,0.45,0.15),(0.4,0.6,0.2),(0.5,0.7,0.3),(0.1,0.25,0.15),(0.2,0.35,0.2),(0.05,0.05,0.08),(0.7,0.7,0.6)]
@@ -150,7 +146,6 @@ def draw_one_branch_segment_pygame(surface, seg_data):
     except Exception:
         if thickness_px > 0 :
             pygame.draw.line(surface, branch_color, start_pos_px, end_pos_px, max(1,thickness_px))
-
 
 def draw_flower_growth_one_step_pygame(drawing_surface, flower_params_evo):
     flower_x_norm_array = flower_params_evo['flower_x_norm_array_evo']
@@ -247,7 +242,6 @@ def draw_flower_growth_one_step_pygame(drawing_surface, flower_params_evo):
         except Exception: 
             pass
 
-
 def draw_flower_scatter_points_pygame(drawing_surface, flower_params_evo):
     flower_x_norm_array = flower_params_evo['flower_x_norm_array_evo']
     flower_y_norm_array = flower_params_evo['flower_y_norm_array_evo']
@@ -275,18 +269,16 @@ def draw_flower_scatter_points_pygame(drawing_surface, flower_params_evo):
         if scatter_radius_px > 0:
             pygame.draw.circle(drawing_surface, final_scatter_color_pygame[:3], (px_scatter, py_scatter), scatter_radius_px)
 
-
 def draw_error_texts_pygame(surface, num_to_draw_this_frame=1):
     default_font_size_px = scale_dimension_relative_to_pygame(0.02)
     default_font = None 
 
     try: 
         if pygame.font.get_init():
-             default_font = pygame.font.Font(None, default_font_size_px)
+             default_font = pygame.font.Font(None, default_font_size_px if default_font_size_px > 0 else 10)
     except Exception: 
         pygame.font.init() 
-        default_font = pygame.font.Font(None, default_font_size_px)
-
+        default_font = pygame.font.Font(None, default_font_size_px if default_font_size_px > 0 else 10)
 
     for _ in range(num_to_draw_this_frame):
         x_pos_norm,y_pos_norm = random.uniform(0,1),random.uniform(0,1)
@@ -316,28 +308,22 @@ def pygame_surface_to_st_image(surface):
     img_array = np.transpose(img_array, (1, 0, 2)) 
     return img_array
 
-
 def main_streamlit():
-    st.set_page_config(layout="wide", page_title="Art Génératif Streamlit")
-    st.title("Art Génératif Floral Absurde - Streamlit (Option 2)")
+    # Configuration de la page Streamlit. layout="wide" utilise plus d'espace horizontal.
+    # Le mode "plein écran" réel (type F11) du navigateur doit être activé par l'utilisateur.
+    st.set_page_config(layout="wide", page_title="Art Génératif Auto-Loop Streamlit")
     
-    STREAMLIT_CANVAS_WIDTH = 800
+    # Masquer le titre par défaut pour un look plus "plein écran"
+    # st.markdown("<style> h1 {display: none;} </style>", unsafe_allow_html=True)
+    # Note: cacher le titre peut rendre l'interface moins claire. À utiliser avec prudence.
+
+    STREAMLIT_CANVAS_WIDTH = 800 # Ou plus, selon la résolution souhaitée
     STREAMLIT_CANVAS_HEIGHT = 600
 
-    placeholder = st.empty()
+    placeholder = st.empty() 
     
-    cols = st.columns([1,1,1,2])
-    if cols[0].button("Démarrer/Redémarrer", key="start_restart"):
-        st.session_state.clear() 
-        st.rerun()
-
-    if 'stop_flag' not in st.session_state:
-        st.session_state.stop_flag = False
-
-    if cols[1].button("Arrêter", key="stop_anim", disabled=st.session_state.get('app_stage', 'INIT') == 'DONE'):
-        st.session_state.stop_flag = True
-        st.info("L'animation s'arrêtera à la prochaine étape majeure.")
-    
+    # --- Initialisation de l'état de session et Pygame ---
+    # Cela se produit une fois par session utilisateur ou après un st.session_state.clear()
     if 'pygame_initialized' not in st.session_state:
         pygame.init() 
         pygame.font.init() 
@@ -345,19 +331,47 @@ def main_streamlit():
         update_screen_constants(STREAMLIT_CANVAS_WIDTH, STREAMLIT_CANVAS_HEIGHT)
         st.session_state.drawing_surface = pygame.Surface((STREAMLIT_CANVAS_WIDTH, STREAMLIT_CANVAS_HEIGHT))
         st.session_state.drawing_surface.fill(BLACK)
+        
+        # Logique de démarrage/réinitialisation
         st.session_state.app_stage = "INIT" 
         st.session_state.current_main_segment_idx = 0 
         st.session_state.flower_growth_step_idx = 0
         st.session_state.current_branch_subsegment_idx = 0
         st.session_state.error_drawing_count = 0
-
+        st.session_state.stop_flag = False # Assurer que stop_flag est initialisé
+        if 'loop_initiated_time' in st.session_state: # Nettoyer les états de boucle
+            del st.session_state.loop_initiated_time
+        if 'loop_message_displayed' in st.session_state:
+            del st.session_state.loop_message_displayed
 
     surface = st.session_state.drawing_surface
     
+    # --- Contrôles utilisateur ---
+    # Placer les contrôles dans une barre latérale ou des colonnes discrètes
+    with st.sidebar:
+        st.header("Contrôles")
+        if st.button("Redémarrer l'Animation", key="restart_button"):
+            st.session_state.clear() 
+            st.rerun()
+
+        if st.button("Arrêter l'Animation", key="stop_button", disabled=(st.session_state.get('app_stage', 'INIT') == 'DONE' and st.session_state.get('stop_flag', False))):
+            st.session_state.stop_flag = True
+            st.info("L'animation s'arrêtera à la fin du cycle actuel.")
+        
+        if st.download_button(
+            label="Sauvegarder l'Image (PNG)",
+            data=pygame_surface_to_st_image(surface) if surface else b"", # Fournir des données vides si surface non prête
+            file_name="art_generatif_streamlit.png",
+            mime="image/png",
+            key="download_button"
+        ):
+            pass # Le téléchargement est géré par Streamlit
+
     if st.session_state.stop_flag and st.session_state.app_stage not in ["DONE", "INIT"]:
-        st.warning("Arrêt en cours...")
-
-
+        # Message pendant que l'arrêt est en cours mais pas encore effectif
+        pass # Le message est déjà dans le bouton. Ou st.sidebar.warning("Arrêt en cours...")
+    
+    # --- Machine d'état principale pour l'animation ---
     current_stage = st.session_state.app_stage
 
     if current_stage == "INIT":
@@ -370,54 +384,47 @@ def main_streamlit():
         if st.session_state.current_main_segment_idx < nbsegments and not st.session_state.stop_flag:
             flower_base_x_norm = np.random.uniform(0.1, 0.9)
             flower_base_y_norm = np.random.uniform(0.1, 0.9)
-            
             initial_size_rel = np.random.uniform(0.01, 0.03) * np.random.uniform(flowersizeratiomin, flowersizeratiomax)
             initial_color_01_val = (random.choice([0.0, 1.0]), random.choice([0.0, 1.0]), random.choice([0.0, 1.0]))
-
             st.session_state.current_flower_params = {
-                'base_x_norm': flower_base_x_norm,
-                'base_y_norm': flower_base_y_norm,
-                'initial_size_relative': initial_size_rel,
-                'initial_color_01': initial_color_01_val,
-                'orientation': np.random.randint(-1, 2),
-                'shape_id': np.random.randint(1, 10),
+                'base_x_norm': flower_base_x_norm, 'base_y_norm': flower_base_y_norm,
+                'initial_size_relative': initial_size_rel, 'initial_color_01': initial_color_01_val,
+                'orientation': np.random.randint(-1, 2), 'shape_id': np.random.randint(1, 10),
                 't_array': np.linspace(0, 2 * np.pi, 100),
-                'current_size_relative_evo': initial_size_rel,
-                'current_color_01_evo': initial_color_01_val,
-                'flower_x_norm_array_evo': np.full(100, flower_base_x_norm),
-                'flower_y_norm_array_evo': np.full(100, flower_base_y_norm),
-                'n_petals': random.choice([3, 5, 7, 4, 6]),
-                'm_waves': random.choice([4, 6, 8, 5, 7]),
-                'n_lobes_cardioid': random.choice([5,6,7,8]),
-                'amplitude_cardioid_mod': random.uniform(0.1, 0.4),
-                'n_points_star': random.choice([5,7,9,6,8]),
-                'amplitude_star_main': random.uniform(0.4, 0.8),
-                'amplitude_star_mod': random.uniform(0.1, 0.3),
-                'freq_star_mod_factor': random.uniform(1.2, 2.5),
-                'n_main_lobes_gear': random.choice([6,8,10,12]),
-                'n_sub_lobes_gear': random.choice([12,16,20,24]),
-                'amp_main_gear': random.uniform(0.15, 0.3),
-                'amp_sub_gear': random.uniform(0.05, 0.15),
+                'current_size_relative_evo': initial_size_rel, 'current_color_01_evo': initial_color_01_val,
+                'flower_x_norm_array_evo': np.full(100, flower_base_x_norm), 'flower_y_norm_array_evo': np.full(100, flower_base_y_norm),
+                'n_petals': random.choice([3, 5, 7, 4, 6]), 'm_waves': random.choice([4, 6, 8, 5, 7]),
+                'n_lobes_cardioid': random.choice([5,6,7,8]), 'amplitude_cardioid_mod': random.uniform(0.1, 0.4),
+                'n_points_star': random.choice([5,7,9,6,8]), 'amplitude_star_main': random.uniform(0.4, 0.8),
+                'amplitude_star_mod': random.uniform(0.1, 0.3), 'freq_star_mod_factor': random.uniform(1.2, 2.5),
+                'n_main_lobes_gear': random.choice([6,8,10,12]), 'n_sub_lobes_gear': random.choice([12,16,20,24]),
+                'amp_main_gear': random.uniform(0.15, 0.3), 'amp_sub_gear': random.uniform(0.05, 0.15),
             }
             st.session_state.flower_growth_step_idx = 0
             st.session_state.app_stage = "DRAWING_FLOWER_GROWTH"
-            st.rerun()
-        else:
+            # Pas de st.rerun() ici, on continue dans le même script pour dessiner l'image
+        elif st.session_state.stop_flag: # Si arrêté, passer directement à DONE pour finaliser l'arrêt
+            st.session_state.app_stage = "DONE"
+        else: # Tous les segments dessinés
             st.session_state.app_stage = "INIT_ERRORS"
-            st.rerun()
+        st.rerun() # Rerun après avoir changé d'état
             
     elif current_stage == "DRAWING_FLOWER_GROWTH":
         if st.session_state.flower_growth_step_idx < 50 and not st.session_state.stop_flag: 
             draw_flower_growth_one_step_pygame(surface, st.session_state.current_flower_params)
             st.session_state.flower_growth_step_idx += 1
+        elif st.session_state.stop_flag:
+            st.session_state.app_stage = "DONE"
         else:
             st.session_state.app_stage = "DRAWING_FLOWER_SCATTER"
-            st.rerun()
+        st.rerun()
 
     elif current_stage == "DRAWING_FLOWER_SCATTER":
         if not st.session_state.stop_flag:
             draw_flower_scatter_points_pygame(surface, st.session_state.current_flower_params)
-        st.session_state.app_stage = "INIT_BRANCH"
+        st.session_state.app_stage = "INIT_BRANCH" # Toujours passer à init branch même si stop_flag pour potentiellement dessiner la branche en cours
+        if st.session_state.stop_flag: # Si stop, on ira à DONE depuis INIT_BRANCH ou DRAWING_BRANCH
+             st.session_state.app_stage = "DONE" 
         st.rerun()
 
     elif current_stage == "INIT_BRANCH":
@@ -429,7 +436,9 @@ def main_streamlit():
                 initial_branch_angle_rad, nbsubsegments
             )
             st.session_state.current_branch_subsegment_idx = 0
-        st.session_state.app_stage = "DRAWING_BRANCH"
+            st.session_state.app_stage = "DRAWING_BRANCH"
+        else: # Si stop_flag est vrai, on termine
+            st.session_state.app_stage = "DONE"
         st.rerun()
 
     elif current_stage == "DRAWING_BRANCH":
@@ -437,47 +446,71 @@ def main_streamlit():
             segment_data = st.session_state.current_branch_segments_data[st.session_state.current_branch_subsegment_idx]
             draw_one_branch_segment_pygame(surface, segment_data)
             st.session_state.current_branch_subsegment_idx += 1
-        else:
+        elif st.session_state.stop_flag:
+            st.session_state.app_stage = "DONE"
+        else: # Fin des sous-segments de cette branche
             st.session_state.current_main_segment_idx += 1
             st.session_state.app_stage = "INIT_FLOWER_SYSTEM" 
-            st.rerun()
+        st.rerun()
             
     elif current_stage == "INIT_ERRORS":
-        st.session_state.error_drawing_count = 0
-        st.session_state.app_stage = "DRAWING_ERRORS"
+        if not st.session_state.stop_flag:
+            st.session_state.error_drawing_count = 0
+            st.session_state.app_stage = "DRAWING_ERRORS"
+        else: # Si stop_flag est vrai
+            st.session_state.app_stage = "DONE"
         st.rerun()
 
     elif current_stage == "DRAWING_ERRORS":
         if st.session_state.error_drawing_count < nbserror666 and not st.session_state.stop_flag:
             draw_error_texts_pygame(surface, num_to_draw_this_frame=2)
             st.session_state.error_drawing_count += 2 
-        else:
+        else: # Erreurs dessinées ou arrêt demandé
             st.session_state.app_stage = "DONE"
-            st.rerun()
+        st.rerun()
 
     elif current_stage == "DONE":
-        st.success("Génération terminée!")
+        # L'image est affichée après ce bloc conditionnel
+        if st.session_state.stop_flag:
+            if not st.session_state.get('final_stop_message_displayed', False):
+                st.sidebar.warning("Animation arrêtée par l'utilisateur.")
+                st.session_state.final_stop_message_displayed = True
+            # Pas de boucle si arrêté manuellement, on reste ici.
+            # Pour éviter un re-run constant, on ne fait rien de plus.
+        else: # Logique de boucle automatique
+            if not st.session_state.get('completion_message_displayed', False):
+                st.sidebar.success("Génération terminée !")
+                st.session_state.completion_message_displayed = True
+
+            if 'loop_initiated_time' not in st.session_state:
+                st.session_state.loop_initiated_time = time.time()
+            
+            if not st.session_state.get('loop_message_displayed', False):
+                st.sidebar.info("Pause avant redémarrage automatique (5s)...")
+                st.session_state.loop_message_displayed = True
+
+            if time.time() - st.session_state.loop_initiated_time > 5: # 5 secondes de pause
+                st.session_state.clear() # Réinitialisation complète pour la boucle
+                st.rerun() # Redémarre le script depuis le début
+            else:
+                # Pendant la pause, on continue de rafraîchir pour que le timer avance
+                time.sleep(0.1) # Petite pause pour ne pas surcharger
+                st.rerun() # Force le re-check du timer
     
+    # --- Affichage de l'image ---
+    # Utilise use_container_width pour que l'image s'adapte à la largeur de la colonne/page.
     img_array = pygame_surface_to_st_image(surface)
-    placeholder.image(img_array, use_container_width=True) # MODIFIED HERE
+    placeholder.image(img_array, use_container_width=True)
 
-    if cols[2].button("Sauvegarder PNG", key="save_png"):
-        img_byte_arr = io.BytesIO()
-        pygame.image.save(surface, img_byte_arr, "PNG")
-        img_byte_arr.seek(0)
-        cols[3].download_button(
-            label="Télécharger art.png",
-            data=img_byte_arr,
-            file_name="art_generatif_streamlit.png",
-            mime="image/png"
-        )
-
-    if st.session_state.app_stage not in ["DONE", "INIT"] and not st.session_state.stop_flag :
-        time.sleep(1 / STREAMLIT_FPS)
-        st.rerun()
-    elif st.session_state.stop_flag and st.session_state.app_stage not in ["DONE", "INIT"]:
-        st.session_state.app_stage = "DONE" 
-        st.rerun()
+    # --- Logique de Rerun pour l'animation principale (hors état DONE en boucle) ---
+    # Cette section est atteinte si un st.rerun() n'a pas déjà été appelé dans les blocs d'état ci-dessus.
+    # Typiquement, après une étape de dessin où l'on veut juste rafraîchir l'image et continuer.
+    # Si l'état est "DONE" et n'est pas en boucle (c.a.d. arrêté par utilisateur), on ne veut pas de rerun ici.
+    if st.session_state.app_stage not in ["DONE", "INIT"] and not st.session_state.stop_flag:
+        time.sleep(1 / STREAMLIT_FPS) 
+        st.rerun() 
+    # Si stop_flag est vrai et que nous ne sommes pas encore à DONE, les blocs d'état devraient forcer vers DONE.
+    # Le `st.rerun()` dans les blocs d'état est prioritaire.
 
 
 if __name__ == '__main__':
