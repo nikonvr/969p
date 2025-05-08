@@ -15,7 +15,7 @@ nbsubsegments = 15
 nbserror666 = 50
 
 # --- Constantes Pygame ---
-STREAMLIT_FPS = 30
+STREAMLIT_FPS = 30  # Vous pouvez essayer de réduire cette valeur (ex: 15 ou 20) si le scintillement persiste
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
@@ -304,11 +304,12 @@ def draw_error_texts_pygame(surface, num_to_draw_this_frame=1):
             text_rect = text_surface.get_rect(center=(px,py))
             surface.blit(text_surface, text_rect)
 
-def pygame_surface_to_st_image(surface):
-    """Converts a Pygame surface to a NumPy array suitable for st.image."""
-    img_array = pygame.surfarray.array3d(surface)
-    img_array = np.transpose(img_array, (1, 0, 2))
-    return img_array
+def pygame_surface_to_png_bytes(surface):
+    """Converts a Pygame surface to PNG bytes."""
+    img_byte_arr = io.BytesIO()
+    pygame.image.save(surface, img_byte_arr, "PNG")
+    img_byte_arr.seek(0)
+    return img_byte_arr.getvalue()
 
 def main_streamlit():
     st.set_page_config(layout="wide", page_title="Art Génératif Auto-Loop Streamlit")
@@ -332,30 +333,24 @@ def main_streamlit():
         st.session_state.current_branch_subsegment_idx = 0
         st.session_state.error_drawing_count = 0
         st.session_state.stop_flag = False
-        if 'loop_initiated_time' in st.session_state:
-            del st.session_state.loop_initiated_time
-        if 'loop_message_displayed' in st.session_state:
-            del st.session_state.loop_message_displayed
-        if 'completion_message_displayed' in st.session_state:
-            del st.session_state.completion_message_displayed
-        if 'final_stop_message_displayed' in st.session_state:
-            del st.session_state.final_stop_message_displayed
-
+        # Nettoyer les états spécifiques à la boucle/fin pour une réinitialisation propre
+        keys_to_clear_on_reset = ['loop_initiated_time', 'loop_message_displayed',
+                                  'completion_message_displayed', 'final_stop_message_displayed']
+        for key in keys_to_clear_on_reset:
+            if key in st.session_state:
+                del st.session_state[key]
 
     surface = st.session_state.drawing_surface
 
-    # --- Préparation des données pour le bouton de téléchargement ---
-    img_for_download_data = b"" # Par défaut, données vides
-    if surface: # S'assurer que la surface existe
+    img_for_download_data = b""
+    if surface:
         img_byte_arr = io.BytesIO()
         try:
             pygame.image.save(surface, img_byte_arr, "PNG")
-            img_byte_arr.seek(0) # Rembobiner au début du buffer BytesIO
-            img_for_download_data = img_byte_arr # Utiliser l'objet BytesIO directement
-        except pygame.error as e:
-            # Gérer discrètement l'erreur, par exemple en loggant si nécessaire
-            # st.sidebar.error(f"Erreur Pygame lors de la préparation du téléchargement: {e}")
-            pass # img_for_download_data restera b""
+            img_byte_arr.seek(0)
+            img_for_download_data = img_byte_arr
+        except pygame.error:
+            pass
 
     with st.sidebar:
         st.header("Contrôles")
@@ -371,14 +366,14 @@ def main_streamlit():
 
         st.download_button(
             label="Sauvegarder l'Image (PNG)",
-            data=img_for_download_data, # MODIFIÉ ICI
+            data=img_for_download_data,
             file_name="art_generatif_streamlit.png",
             mime="image/png",
             key="download_button"
         )
 
-
     current_stage = st.session_state.app_stage
+    trigger_rerun_for_animation_frame = False
 
     if current_stage == "INIT":
         surface.fill(BLACK)
@@ -408,21 +403,25 @@ def main_streamlit():
             }
             st.session_state.flower_growth_step_idx = 0
             st.session_state.app_stage = "DRAWING_FLOWER_GROWTH"
+            st.rerun() # Rerun pour passer à l'état DRAWING_FLOWER_GROWTH
         elif st.session_state.stop_flag:
             st.session_state.app_stage = "DONE"
+            st.rerun()
         else:
             st.session_state.app_stage = "INIT_ERRORS"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "DRAWING_FLOWER_GROWTH":
         if st.session_state.flower_growth_step_idx < 50 and not st.session_state.stop_flag:
             draw_flower_growth_one_step_pygame(surface, st.session_state.current_flower_params)
             st.session_state.flower_growth_step_idx += 1
+            trigger_rerun_for_animation_frame = True # Indiquer qu'un rafraîchissement est nécessaire
         elif st.session_state.stop_flag:
             st.session_state.app_stage = "DONE"
+            st.rerun()
         else:
             st.session_state.app_stage = "DRAWING_FLOWER_SCATTER"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "DRAWING_FLOWER_SCATTER":
         if not st.session_state.stop_flag:
@@ -432,7 +431,7 @@ def main_streamlit():
              st.session_state.app_stage = "DONE"
         else:
             st.session_state.app_stage = "INIT_BRANCH"
-        st.rerun()
+        st.rerun() # Toujours rerun après scatter pour passer à l'état suivant
 
     elif current_stage == "INIT_BRANCH":
         if not st.session_state.stop_flag:
@@ -444,37 +443,42 @@ def main_streamlit():
             )
             st.session_state.current_branch_subsegment_idx = 0
             st.session_state.app_stage = "DRAWING_BRANCH"
+            st.rerun() # Rerun pour passer à l'état DRAWING_BRANCH
         else:
             st.session_state.app_stage = "DONE"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "DRAWING_BRANCH":
         if st.session_state.current_branch_subsegment_idx < nbsubsegments and not st.session_state.stop_flag:
             segment_data = st.session_state.current_branch_segments_data[st.session_state.current_branch_subsegment_idx]
             draw_one_branch_segment_pygame(surface, segment_data)
             st.session_state.current_branch_subsegment_idx += 1
+            trigger_rerun_for_animation_frame = True # Indiquer qu'un rafraîchissement est nécessaire
         elif st.session_state.stop_flag:
             st.session_state.app_stage = "DONE"
+            st.rerun()
         else:
             st.session_state.current_main_segment_idx += 1
             st.session_state.app_stage = "INIT_FLOWER_SYSTEM"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "INIT_ERRORS":
         if not st.session_state.stop_flag:
             st.session_state.error_drawing_count = 0
             st.session_state.app_stage = "DRAWING_ERRORS"
+            st.rerun() # Rerun pour passer à l'état DRAWING_ERRORS
         else:
             st.session_state.app_stage = "DONE"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "DRAWING_ERRORS":
         if st.session_state.error_drawing_count < nbserror666 and not st.session_state.stop_flag:
-            draw_error_texts_pygame(surface, num_to_draw_this_frame=2)
+            draw_error_texts_pygame(surface, num_to_draw_this_frame=2) # Dessine 2 erreurs par frame pour accélérer un peu
             st.session_state.error_drawing_count += 2
+            trigger_rerun_for_animation_frame = True # Indiquer qu'un rafraîchissement est nécessaire
         else:
             st.session_state.app_stage = "DONE"
-        st.rerun()
+            st.rerun()
 
     elif current_stage == "DONE":
         if st.session_state.stop_flag:
@@ -497,15 +501,20 @@ def main_streamlit():
                 st.session_state.clear()
                 st.rerun()
             else:
-                time.sleep(0.1)
-                st.rerun()
+                time.sleep(0.1) # Petite pause pour ne pas surcharger pendant le comptage
+                st.rerun() # Rerun pour continuer le comptage de la pause
 
-    img_array = pygame_surface_to_st_image(surface)
-    placeholder.image(img_array, use_container_width=True)
+    # Affichage de l'image
+    img_bytes = pygame_surface_to_png_bytes(surface)
+    placeholder.image(img_bytes, use_container_width=True, output_format="PNG")
 
-    if st.session_state.app_stage not in ["DONE", "INIT"] and not st.session_state.stop_flag:
+    # Logique de Rerun pour l'animation principale
+    if trigger_rerun_for_animation_frame and not st.session_state.stop_flag :
         time.sleep(1 / STREAMLIT_FPS)
         st.rerun()
+    # Si un st.rerun() a déjà été appelé pour un changement d'état majeur,
+    # ou si l'animation est 'DONE' et en pause/arrêtée, ce bloc ne sera pas exécuté
+    # ou sa condition trigger_rerun_for_animation_frame sera False.
 
 if __name__ == '__main__':
     main_streamlit()
