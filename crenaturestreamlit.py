@@ -317,7 +317,8 @@ if st.sidebar.button("Générer l'Image"):
         )
     
     # Afficher l'image générée
-    st.image(final_image_array, caption="Image Générée", use_column_width=True)
+    # CORRECTION: Utiliser use_container_width au lieu de use_column_width
+    st.image(final_image_array, caption="Image Générée", use_container_width=True) 
     
     st.success("Génération terminée !")
 
