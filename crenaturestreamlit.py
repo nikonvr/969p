@@ -4,13 +4,17 @@ import numpy as np
 import random
 import sys 
 
-# --- Paramètres Globaux (Seront remplacés par les inputs Streamlit) ---
+# --- Paramètres Globaux ---
 # Ces valeurs servent de défauts pour les widgets Streamlit
 DEFAULT_NUM_DOTS = 20000
 DEFAULT_NBSEGMENTS = 20
 DEFAULT_NBSUBSEGMENTS = 20
 DEFAULT_NBSUBSEGMENTFLOWER = 20
 DEFAULT_NBSERROR666 = 100
+
+# CORRECTION: Redéfinir les constantes globales qui ne sont pas des inputs Streamlit
+flowersizeratiomin = 5
+flowersizeratiomax = 20
 
 # --- Constantes Pygame et de Conversion ---
 # Utiliser des dimensions fixes pour la surface de génération
@@ -224,14 +228,16 @@ def draw_error_texts_pygame(surface, nbserror666): # Prend nbserror666 en param�
              pass 
     
     # Quitter le module font après usage
-    pygame.font.quit()
-
+    # pygame.font.quit() # Peut causer des problèmes si appelé avant la fin de l'app Streamlit
 
 # --- Fonction Principale de Génération pour Streamlit ---
 # @st.cache_data # Optionnel: Mettre en cache si la génération est très longue et les params ne changent pas souvent
 def generate_final_image(num_dots, nbsegments, nbsubsegments, nbsubsegmentflower, nbserror666, flowersizeratiomin, flowersizeratiomax):
     """Génère l'image complète sur une surface Pygame et retourne un tableau NumPy."""
     
+    # Initialiser Pygame (nécessaire pour utiliser les modules comme surfarray)
+    pygame.init() 
+
     # Créer la surface de dessin
     drawing_surface = pygame.Surface((IMG_WIDTH, IMG_HEIGHT))
     drawing_surface.fill(BLACK)
@@ -268,11 +274,16 @@ def generate_final_image(num_dots, nbsegments, nbsubsegments, nbsubsegmentflower
     
     print("Conversion de l'image pour Streamlit...")
     # Convertir la surface Pygame en tableau NumPy pour Streamlit
-    img_array = pygame.surfarray.pixels3d(drawing_surface)
+    # Utiliser pygame.surfarray.array3d() est souvent plus direct
+    img_array = pygame.surfarray.array3d(drawing_surface)
     # Pygame donne (width, height, channels), Streamlit attend (height, width, channels)
     img_array = img_array.swapaxes(0, 1) 
     
     print("Génération terminée.")
+    
+    # Quitter Pygame après usage
+    pygame.quit() 
+    
     return img_array
 
 # --- Interface Streamlit ---
@@ -294,14 +305,15 @@ if st.sidebar.button("Générer l'Image"):
     # Afficher un message pendant la génération
     with st.spinner("Génération de l'image en cours... Cela peut prendre un moment."):
         # Appel de la fonction de génération avec les paramètres de l'interface
+        # Utilisation des constantes globales redéfinies au début du script
         final_image_array = generate_final_image(
             num_dots=num_dots_input,
             nbsegments=nbsegments_input,
             nbsubsegments=nbsubsegments_input,
             nbsubsegmentflower=nbsubsegmentflower_input,
             nbserror666=nbserror666_input,
-            flowersizeratiomin=flowersizeratiomin, # Utilise les constantes globales
-            flowersizeratiomax=flowersizeratiomax  # Utilise les constantes globales
+            flowersizeratiomin=flowersizeratiomin, 
+            flowersizeratiomax=flowersizeratiomax  
         )
     
     # Afficher l'image générée
