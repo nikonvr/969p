@@ -244,18 +244,17 @@ def draw_flower_growth_one_step_pygame(drawing_surface, flower_params_evo):
     if len(pointlist_px) > 1:
         try:
             pygame.draw.aalines(drawing_surface, final_trace_color_pygame[:3], False, pointlist_px)
-        except Exception: # Minimal error handling for brevity
+        except Exception: 
             pass
 
 
 def draw_flower_scatter_points_pygame(drawing_surface, flower_params_evo):
     flower_x_norm_array = flower_params_evo['flower_x_norm_array_evo']
     flower_y_norm_array = flower_params_evo['flower_y_norm_array_evo']
-    current_size_relative = flower_params_evo['current_size_relative_evo'] # Use the final size
+    current_size_relative = flower_params_evo['current_size_relative_evo'] 
 
     size_for_scatter_relative = current_size_relative - np.random.uniform(0,0.0005) * np.random.uniform(flowersizeratiomin,flowersizeratiomax)
     
-    # Modify color one last time for scatter points
     flower_params_evo['current_color_01_evo'] = modify_color_original_logic(flower_params_evo['current_color_01_evo'])
     final_scatter_color_pygame = rgb_01_to_pygame_color(flower_params_evo['current_color_01_evo'])
     
@@ -279,15 +278,13 @@ def draw_flower_scatter_points_pygame(drawing_surface, flower_params_evo):
 
 def draw_error_texts_pygame(surface, num_to_draw_this_frame=1):
     default_font_size_px = scale_dimension_relative_to_pygame(0.02)
-    default_font = None # Will be initialized if needed
-    # This function is called multiple times, drawing a few texts per frame
-    # The main Streamlit loop will control how many are drawn in total via nbserror666
+    default_font = None 
 
-    try: # pygame.font might not be initialized on first call if not careful
+    try: 
         if pygame.font.get_init():
              default_font = pygame.font.Font(None, default_font_size_px)
-    except Exception: # pygame.error: font not initialized
-        pygame.font.init() # Try to initialize it
+    except Exception: 
+        pygame.font.init() 
         default_font = pygame.font.Font(None, default_font_size_px)
 
 
@@ -301,10 +298,10 @@ def draw_error_texts_pygame(surface, num_to_draw_this_frame=1):
         
         current_font = default_font
         try:
-            if font_size_px > 0: # Ensure font size is valid
+            if font_size_px > 0: 
                  current_font = pygame.font.Font(None, font_size_px)
-        except: # Fallback to default if specific size fails
-            if default_font is None and pygame.font.get_init(): # Ensure default_font initialized
+        except: 
+            if default_font is None and pygame.font.get_init(): 
                 default_font = pygame.font.Font(None, default_font_size_px if default_font_size_px > 0 else 10)
             current_font = default_font
         
@@ -316,7 +313,7 @@ def draw_error_texts_pygame(surface, num_to_draw_this_frame=1):
 
 def pygame_surface_to_st_image(surface):
     img_array = pygame.surfarray.array3d(surface)
-    img_array = np.transpose(img_array, (1, 0, 2)) # Pygame (w,h,c) to Numpy (h,w,c) for st.image
+    img_array = np.transpose(img_array, (1, 0, 2)) 
     return img_array
 
 
@@ -329,10 +326,9 @@ def main_streamlit():
 
     placeholder = st.empty()
     
-    # Controls
     cols = st.columns([1,1,1,2])
     if cols[0].button("Démarrer/Redémarrer", key="start_restart"):
-        st.session_state.clear() # Full reset
+        st.session_state.clear() 
         st.rerun()
 
     if 'stop_flag' not in st.session_state:
@@ -342,16 +338,15 @@ def main_streamlit():
         st.session_state.stop_flag = True
         st.info("L'animation s'arrêtera à la prochaine étape majeure.")
     
-    # Initialisation de Pygame et de la surface de dessin si nécessaire
     if 'pygame_initialized' not in st.session_state:
-        pygame.init() # Initialize all Pygame modules
-        pygame.font.init() # Explicitly initialize font module
+        pygame.init() 
+        pygame.font.init() 
         st.session_state.pygame_initialized = True
         update_screen_constants(STREAMLIT_CANVAS_WIDTH, STREAMLIT_CANVAS_HEIGHT)
         st.session_state.drawing_surface = pygame.Surface((STREAMLIT_CANVAS_WIDTH, STREAMLIT_CANVAS_HEIGHT))
         st.session_state.drawing_surface.fill(BLACK)
         st.session_state.app_stage = "INIT" 
-        st.session_state.current_main_segment_idx = 0 # For nbsegments (flower-stem systems)
+        st.session_state.current_main_segment_idx = 0 
         st.session_state.flower_growth_step_idx = 0
         st.session_state.current_branch_subsegment_idx = 0
         st.session_state.error_drawing_count = 0
@@ -361,25 +356,18 @@ def main_streamlit():
     
     if st.session_state.stop_flag and st.session_state.app_stage not in ["DONE", "INIT"]:
         st.warning("Arrêt en cours...")
-        # To prevent immediate jump to DONE, allow current drawing phase to complete partially or fully
-        # For simplicity, we'll let it finish the current major step (flower or branch sequence) then stop.
-        # A more graceful stop would be more complex.
-        # Here, we just set to DONE to break the loop effectively.
-        # st.session_state.app_stage = "DONE" # Or a specific "STOPPED" state
 
 
-    # Machine d'état pour l'animation
     current_stage = st.session_state.app_stage
 
     if current_stage == "INIT":
-        surface.fill(BLACK) # Clear surface on restart
+        surface.fill(BLACK) 
         draw_background_dots_pygame(surface)
         st.session_state.app_stage = "INIT_FLOWER_SYSTEM"
         st.rerun()
 
     elif current_stage == "INIT_FLOWER_SYSTEM":
         if st.session_state.current_main_segment_idx < nbsegments and not st.session_state.stop_flag:
-            # Initialize data for a new flower
             flower_base_x_norm = np.random.uniform(0.1, 0.9)
             flower_base_y_norm = np.random.uniform(0.1, 0.9)
             
@@ -394,12 +382,10 @@ def main_streamlit():
                 'orientation': np.random.randint(-1, 2),
                 'shape_id': np.random.randint(1, 10),
                 't_array': np.linspace(0, 2 * np.pi, 100),
-                # Evolving state
                 'current_size_relative_evo': initial_size_rel,
                 'current_color_01_evo': initial_color_01_val,
                 'flower_x_norm_array_evo': np.full(100, flower_base_x_norm),
                 'flower_y_norm_array_evo': np.full(100, flower_base_y_norm),
-                # Store shape-specific random parameters once per flower
                 'n_petals': random.choice([3, 5, 7, 4, 6]),
                 'm_waves': random.choice([4, 6, 8, 5, 7]),
                 'n_lobes_cardioid': random.choice([5,6,7,8]),
@@ -421,10 +407,9 @@ def main_streamlit():
             st.rerun()
             
     elif current_stage == "DRAWING_FLOWER_GROWTH":
-        if st.session_state.flower_growth_step_idx < 50 and not st.session_state.stop_flag: # 50 steps for flower growth
+        if st.session_state.flower_growth_step_idx < 50 and not st.session_state.stop_flag: 
             draw_flower_growth_one_step_pygame(surface, st.session_state.current_flower_params)
             st.session_state.flower_growth_step_idx += 1
-            # No rerun, fall through to display then rerun later
         else:
             st.session_state.app_stage = "DRAWING_FLOWER_SCATTER"
             st.rerun()
@@ -452,10 +437,9 @@ def main_streamlit():
             segment_data = st.session_state.current_branch_segments_data[st.session_state.current_branch_subsegment_idx]
             draw_one_branch_segment_pygame(surface, segment_data)
             st.session_state.current_branch_subsegment_idx += 1
-            # No rerun, fall through
         else:
             st.session_state.current_main_segment_idx += 1
-            st.session_state.app_stage = "INIT_FLOWER_SYSTEM" # Loop back for next flower or move to errors
+            st.session_state.app_stage = "INIT_FLOWER_SYSTEM" 
             st.rerun()
             
     elif current_stage == "INIT_ERRORS":
@@ -465,21 +449,17 @@ def main_streamlit():
 
     elif current_stage == "DRAWING_ERRORS":
         if st.session_state.error_drawing_count < nbserror666 and not st.session_state.stop_flag:
-            # Draw a few errors per frame for effect
             draw_error_texts_pygame(surface, num_to_draw_this_frame=2)
             st.session_state.error_drawing_count += 2 
-            # No rerun, fall through
         else:
             st.session_state.app_stage = "DONE"
             st.rerun()
 
     elif current_stage == "DONE":
         st.success("Génération terminée!")
-        # Final display handled below, no more reruns from here in the logic.
     
-    # Display the current surface
     img_array = pygame_surface_to_st_image(surface)
-    placeholder.image(img_array, use_column_width=True)
+    placeholder.image(img_array, use_container_width=True) # MODIFIED HERE
 
     if cols[2].button("Sauvegarder PNG", key="save_png"):
         img_byte_arr = io.BytesIO()
@@ -492,12 +472,11 @@ def main_streamlit():
             mime="image/png"
         )
 
-    # Rerun logic for animation steps
     if st.session_state.app_stage not in ["DONE", "INIT"] and not st.session_state.stop_flag :
         time.sleep(1 / STREAMLIT_FPS)
         st.rerun()
     elif st.session_state.stop_flag and st.session_state.app_stage not in ["DONE", "INIT"]:
-        st.session_state.app_stage = "DONE" # Force done if stop_flag is true and not already done
+        st.session_state.app_stage = "DONE" 
         st.rerun()
 
 
