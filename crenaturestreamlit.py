@@ -5,31 +5,25 @@ import random
 import sys 
 
 # --- Paramètres Globaux ---
-# Ces valeurs servent de défauts pour les widgets Streamlit
 DEFAULT_NUM_DOTS = 20000
 DEFAULT_NBSEGMENTS = 20
 DEFAULT_NBSUBSEGMENTS = 20
 DEFAULT_NBSUBSEGMENTFLOWER = 20
 DEFAULT_NBSERROR666 = 100
-
-# CORRECTION: Redéfinir les constantes globales qui ne sont pas des inputs Streamlit
 flowersizeratiomin = 5
 flowersizeratiomax = 20
 
 # --- Constantes Pygame et de Conversion ---
 IMG_WIDTH = 1280  
 IMG_HEIGHT = 720 
-
 FIG_DPI = 100 
 MPL_UNIT_TO_PX_X = IMG_WIDTH
 MPL_UNIT_TO_PX_Y = IMG_HEIGHT
 MATPLOTLIB_Y_ASPECT_FACTOR = (16.0/9.0) / 2.0
-
-# Couleurs Pygame
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
-# --- Fonctions Utilitaires (Identiques) ---
+# --- Fonctions Utilitaires ---
 def modify_color_original_logic(rgb_0_1_tuple):
     r, g, b = rgb_0_1_tuple
     change_amount = random.uniform(0.01, 0.05)
@@ -57,7 +51,7 @@ def mpl_linewidth_to_pygame_thickness(linewidth_mpl_points):
     thickness_px = linewidth_mpl_points * FIG_DPI / 72.0
     return max(1, int(thickness_px))
 
-# --- Fonctions de Génération de Données (Identiques) ---
+# --- Fonctions de Génération de Données ---
 def generate_branch_and_flower_data_mpl(start_x_mpl, start_y_mpl, nbsubsegments, nbsubsegmentflower, flowersizeratiomin, flowersizeratiomax):
     branch_segment_data = []
     flower_creation_data = []
@@ -88,7 +82,7 @@ def generate_branch_and_flower_data_mpl(start_x_mpl, start_y_mpl, nbsubsegments,
             subsegment_counter_for_flower = 0
     return branch_segment_data, flower_creation_data
 
-# --- Fonctions de Dessin (Identiques) ---
+# --- Fonctions de Dessin ---
 BACKGROUND_PALETTES_01 = [
     [(0.2,0.1,0.05),(0.1,0.05,0.02),(0.4,0.25,0.1),(0.5,0.3,0.15),(0.6,0.3,0.1),(0.7,0.4,0.2),(0.8,0.5,0.2),(0.85,0.6,0.3),(0.1,0.2,0.05),(0.2,0.3,0.1),(0.3,0.4,0.1),(0.4,0.5,0.2),(0.05,0.05,0.05),(0.1,0.1,0.1),(0.85,0.8,0.7),(0.9,0.85,0.75)],
     [(0.1,0.15,0.05),(0.15,0.2,0.1),(0.2,0.3,0.1),(0.3,0.45,0.15),(0.4,0.6,0.2),(0.5,0.7,0.3),(0.1,0.25,0.15),(0.2,0.35,0.2),(0.05,0.05,0.08),(0.7,0.7,0.6)]
@@ -127,7 +121,8 @@ def draw_one_branch_segment_pygame(surface, seg_data):
     thickness_px = mpl_linewidth_to_pygame_thickness(seg_data['mpl_linewidth_points'])
     pygame.draw.line(surface, BLACK, start_pos_px, end_pos_px, thickness_px)
 
-def draw_flower_pygame(drawing_surface, flower_data, flowersizeratiomin, flowersizeratiomax): 
+def draw_flower_pygame_progressive(drawing_surface, flower_data, flowersizeratiomin, flowersizeratiomax): 
+    """Générateur qui dessine une fleur trace par trace et yield l'image."""
     flower_x_mpl_array = np.full(100, flower_data['base_x_mpl']) 
     flower_y_mpl_array = np.full(100, flower_data['base_y_mpl'])
     current_size_mpl = flower_data['initial_size_mpl']
@@ -135,13 +130,15 @@ def draw_flower_pygame(drawing_surface, flower_data, flowersizeratiomin, flowers
     orientation = flower_data['orientation']
     shape_id = flower_data['shape_id']
     t_array = np.linspace(0, 2 * np.pi, 100)
-    for _ in range(50): 
+
+    for _ in range(50): # 50 "traces"
         current_size_mpl += np.random.uniform(0.0000002, 0.000002) * np.random.uniform(flowersizeratiomin, flowersizeratiomax)
         size_multiplier = 1.0
         if shape_id == 2: size_multiplier = 5.0
         elif shape_id == 3: size_multiplier = 2.0
         effective_size_mpl = current_size_mpl * size_multiplier
         dx_mpl, dy_mpl = np.zeros_like(t_array), np.zeros_like(t_array)
+        # ... (calcul dx_mpl, dy_mpl comme avant) ...
         if shape_id == 1:
             dx_mpl = 0.5*effective_size_mpl*(np.random.uniform(1,3)*np.sin(t_array) + orientation*np.random.uniform(0.0125,0.25)*np.sin(2*t_array))
             dy_mpl = MATPLOTLIB_Y_ASPECT_FACTOR*effective_size_mpl*(np.random.uniform(1,3)*np.cos(t_array) - orientation*np.random.uniform(0.0125,0.25)*np.cos(2*t_array))
@@ -154,14 +151,23 @@ def draw_flower_pygame(drawing_surface, flower_data, flowersizeratiomin, flowers
         elif shape_id == 4:
             dx_mpl = 0.5*effective_size_mpl*(np.random.uniform(0.25,1)*np.sin(t_array) + orientation*np.random.uniform(0.5,2)*np.sin(2*t_array) + np.sin(5*t_array))
             dy_mpl = MATPLOTLIB_Y_ASPECT_FACTOR*effective_size_mpl*(np.random.uniform(0.25,1)*np.cos(t_array) - orientation*np.random.uniform(0.5,2)*np.cos(2*t_array) + np.cos(5*t_array))
+        
         flower_x_mpl_array += dx_mpl
         flower_y_mpl_array += dy_mpl
         current_color_01 = modify_color_original_logic(current_color_01)
         final_trace_color_pygame = rgb_01_to_pygame_color(current_color_01) 
         pointlist_px = [(scale_coords_mpl_to_pygame(flower_x_mpl_array[j], flower_y_mpl_array[j])) for j in range(len(flower_x_mpl_array))]
+        
+        # Dessiner la trace actuelle
         if len(pointlist_px) > 1:
             try: pygame.draw.aalines(drawing_surface, final_trace_color_pygame[:3], False, pointlist_px) 
             except Exception as e_draw: print(f"Erreur Pygame draw.aalines: {e_draw}")
+        
+        # Yield l'image après avoir dessiné cette trace
+        img_array = pygame.surfarray.array3d(drawing_surface).swapaxes(0, 1)
+        yield img_array
+
+    # Dessiner les "extensions de feuille" (scatter) APRES toutes les traces
     size_for_scatter_mpl_scalar = current_size_mpl - np.random.uniform(0,0.00002)*np.random.uniform(flowersizeratiomin,flowersizeratiomax)
     current_color_01 = modify_color_original_logic(current_color_01) 
     final_scatter_color_pygame = rgb_01_to_pygame_color(current_color_01) 
@@ -176,6 +182,10 @@ def draw_flower_pygame(drawing_surface, flower_data, flowersizeratiomin, flowers
         scatter_radius_px = 1 
         if scatter_radius_px > 0:
             pygame.draw.circle(drawing_surface, final_scatter_color_pygame[:3], (px_scatter, py_scatter), scatter_radius_px) 
+            
+    # Yield l'image finale de la fleur (avec scatter)
+    img_array = pygame.surfarray.array3d(drawing_surface).swapaxes(0, 1)
+    yield img_array
 
 def draw_error_texts_pygame(surface, nbserror666): 
     try:
@@ -202,14 +212,14 @@ def draw_error_texts_pygame(surface, nbserror666):
              print(f"Erreur rendu texte: {e_render} pour taille {font_size_px}")
              pass 
 
-# --- Fonction Principale de Génération (Modifiée en Générateur) ---
-def generate_image_progressive(num_dots, nbsegments, nbsubsegments, nbsubsegmentflower, nbserror666, flowersizeratiomin, flowersizeratiomax):
-    """Génère l'image progressivement et 'yield' des images intermédiaires."""
+# --- Fonction Principale de Génération (Modifiée en Générateur Très Progressif) ---
+def generate_image_very_progressive(num_dots, nbsegments, nbsubsegments, nbsubsegmentflower, nbserror666, flowersizeratiomin, flowersizeratiomax):
+    """Génère l'image très progressivement et 'yield' des images intermédiaires."""
     
     pygame.init() 
     drawing_surface = pygame.Surface((IMG_WIDTH, IMG_HEIGHT))
     drawing_surface.fill(BLACK)
-    print("Génération de l'image (progressive)...")
+    print("Génération de l'image (très progressive)...")
     
     # Dessiner l'arrière-plan
     draw_background_dots_pygame(drawing_surface, num_dots)
@@ -219,26 +229,31 @@ def generate_image_progressive(num_dots, nbsegments, nbsubsegments, nbsubsegment
     yield img_array 
 
     # Dessiner les branches et les fleurs
-    update_interval = max(1, nbsegments // 10) # Mettre à jour l'image tous les 10% des branches (ou chaque branche si < 10)
     for i in range(nbsegments):
         start_x_mpl, start_y_mpl = np.random.uniform(0,0.9), np.random.uniform(0,0.9)
         branch_segments, flower_instructions = generate_branch_and_flower_data_mpl(
             start_x_mpl, start_y_mpl, nbsubsegments, nbsubsegmentflower, flowersizeratiomin, flowersizeratiomax
         )
+        
+        # Dessiner les segments de la branche progressivement
         for seg_data in branch_segments:
             draw_one_branch_segment_pygame(drawing_surface, seg_data)
-        for flower_data in flower_instructions:
-            draw_flower_pygame(drawing_surface, flower_data, flowersizeratiomin, flowersizeratiomax)
-            
-        # Yield l'image intermédiaire après chaque 'update_interval' branches
-        if (i + 1) % update_interval == 0 or i == nbsegments - 1:
-            print(f"Branche {i+1}/{nbsegments} générée. Mise à jour de l'affichage...")
+            # Yield après chaque segment
             img_array = pygame.surfarray.array3d(drawing_surface).swapaxes(0, 1)
             yield img_array 
+            
+        # Dessiner les fleurs de la branche progressivement (trace par trace)
+        for flower_data in flower_instructions:
+            # Itérer sur le générateur de la fleur et relayer les images intermédiaires
+            for flower_img_array in draw_flower_pygame_progressive(drawing_surface, flower_data, flowersizeratiomin, flowersizeratiomax):
+                 yield flower_img_array # Relayer l'image après chaque trace/scatter de la fleur
+            
+        if (i + 1) % (nbsegments // 5 or 1) == 0: 
+            print(f"Branche {i+1}/{nbsegments} traitée.")
 
     print("Segments et fleurs terminés.")
     
-    # Dessiner les textes "Error"
+    # Dessiner les textes "Error" (pas d'affichage progressif pour les textes pour l'instant)
     draw_error_texts_pygame(drawing_surface, nbserror666)
     print("Textes 'Error' terminés.")
     
@@ -250,8 +265,8 @@ def generate_image_progressive(num_dots, nbsegments, nbsubsegments, nbsubsegment
 
 # --- Interface Streamlit ---
 st.set_page_config(layout="wide") 
-st.title("Générateur d'Art Floral - Streamlit (Affichage Intermédiaire)")
-st.markdown("Ajustez les paramètres et cliquez sur 'Générer'. L'image sera mise à jour périodiquement.")
+st.title("Générateur d'Art Floral - Streamlit (Affichage Très Progressif)")
+st.markdown("Ajustez les paramètres et cliquez sur 'Générer'. L'image sera mise à jour très fréquemment.")
 
 # Sidebar pour les paramètres
 st.sidebar.header("Paramètres de Génération")
@@ -267,31 +282,33 @@ image_placeholder = st.empty()
 # Bouton pour lancer la génération
 if st.sidebar.button("Générer l'Image"):
     
-    with st.spinner("Génération de l'image en cours... Affichage des étapes intermédiaires."):
-        # Itérer sur le générateur pour obtenir les images intermédiaires
-        for intermediate_image_array in generate_image_progressive(
-            num_dots=num_dots_input,
-            nbsegments=nbsegments_input,
-            nbsubsegments=nbsubsegments_input,
-            nbsubsegmentflower=nbsubsegmentflower_input,
-            nbserror666=nbserror666_input,
-            flowersizeratiomin=flowersizeratiomin, 
-            flowersizeratiomax=flowersizeratiomax  
-        ):
-            # Mettre à jour le placeholder avec l'image actuelle
-            image_placeholder.image(intermediate_image_array, caption=f"Génération en cours...", use_container_width=True)
+    # Afficher un message d'attente initial
+    image_placeholder.info("Initialisation de la génération...")
+    
+    # Itérer sur le générateur pour obtenir les images intermédiaires
+    # Utiliser un compteur simple pour la légende, car le nombre total d'étapes est variable
+    step_count = 0 
+    for intermediate_image_array in generate_image_very_progressive(
+        num_dots=num_dots_input,
+        nbsegments=nbsegments_input,
+        nbsubsegments=nbsubsegments_input,
+        nbsubsegmentflower=nbsubsegmentflower_input,
+        nbserror666=nbserror666_input,
+        flowersizeratiomin=flowersizeratiomin, 
+        flowersizeratiomax=flowersizeratiomax  
+    ):
+        step_count += 1
+        # Mettre à jour le placeholder avec l'image actuelle
+        image_placeholder.image(intermediate_image_array, caption=f"Génération en cours (Étape {step_count})...", use_container_width=True)
     
     # Afficher un message de succès à la fin
     st.success("Génération terminée !")
-    # La dernière image reste affichée dans le placeholder
+    # La dernière image reste affichée dans le placeholder avec une légende finale si désiré
+    # image_placeholder.image(intermediate_image_array, caption="Image Finale Générée", use_container_width=True) 
 
 else:
     # Message initial 
     st.info("Cliquez sur 'Générer l'Image' dans la barre latérale pour commencer.")
-    # Optionnel: Afficher une image vide ou par défaut au début
-    # placeholder_img = np.zeros((IMG_HEIGHT, IMG_WIDTH, 3), dtype=np.uint8)
-    # image_placeholder.image(placeholder_img, caption="Prêt à générer", use_container_width=True)
-
 
 st.sidebar.markdown("---")
 st.sidebar.info("Application créée à partir d'un script Pygame/Matplotlib.")
