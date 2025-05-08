@@ -123,22 +123,30 @@ def draw_one_branch_segment_pygame(surface, seg_data):
 
 def draw_flower_pygame_progressive(drawing_surface, flower_data, flowersizeratiomin, flowersizeratiomax): 
     """Générateur qui dessine une fleur trace par trace et yield l'image."""
-    flower_x_mpl_array = np.full(100, flower_data['base_x_mpl']) 
-    flower_y_mpl_array = np.full(100, flower_data['base_y_mpl'])
+    
+    # MODIFICATION: Plus de traces, moins de points par trace
+    num_traces = 250 
+    num_points_per_trace = 20 
+    
+    flower_x_mpl_array = np.full(num_points_per_trace, flower_data['base_x_mpl']) 
+    flower_y_mpl_array = np.full(num_points_per_trace, flower_data['base_y_mpl'])
     current_size_mpl = flower_data['initial_size_mpl']
     current_color_01 = flower_data['initial_color_01'] 
     orientation = flower_data['orientation']
     shape_id = flower_data['shape_id']
-    t_array = np.linspace(0, 2 * np.pi, 100)
+    t_array = np.linspace(0, 2 * np.pi, num_points_per_trace) # Utiliser le nouveau nombre de points
 
-    for _ in range(50): # 50 "traces"
-        current_size_mpl += np.random.uniform(0.0000002, 0.000002) * np.random.uniform(flowersizeratiomin, flowersizeratiomax)
+    # Ajuster l'incrément de taille pour compenser le plus grand nombre de traces
+    size_increment_factor = 50 / num_traces # Facteur pour ajuster la croissance totale
+    
+    for _ in range(num_traces): # Utiliser le nouveau nombre de traces
+        current_size_mpl += np.random.uniform(0.0000002, 0.000002) * np.random.uniform(flowersizeratiomin, flowersizeratiomax) * size_increment_factor
         size_multiplier = 1.0
         if shape_id == 2: size_multiplier = 5.0
         elif shape_id == 3: size_multiplier = 2.0
         effective_size_mpl = current_size_mpl * size_multiplier
         dx_mpl, dy_mpl = np.zeros_like(t_array), np.zeros_like(t_array)
-        # ... (calcul dx_mpl, dy_mpl comme avant) ...
+        # ... (calcul dx_mpl, dy_mpl comme avant, mais avec le nouveau t_array) ...
         if shape_id == 1:
             dx_mpl = 0.5*effective_size_mpl*(np.random.uniform(1,3)*np.sin(t_array) + orientation*np.random.uniform(0.0125,0.25)*np.sin(2*t_array))
             dy_mpl = MATPLOTLIB_Y_ASPECT_FACTOR*effective_size_mpl*(np.random.uniform(1,3)*np.cos(t_array) - orientation*np.random.uniform(0.0125,0.25)*np.cos(2*t_array))
@@ -158,7 +166,7 @@ def draw_flower_pygame_progressive(drawing_surface, flower_data, flowersizeratio
         final_trace_color_pygame = rgb_01_to_pygame_color(current_color_01) 
         pointlist_px = [(scale_coords_mpl_to_pygame(flower_x_mpl_array[j], flower_y_mpl_array[j])) for j in range(len(flower_x_mpl_array))]
         
-        # Dessiner la trace actuelle
+        # Dessiner la trace actuelle (plus courte)
         if len(pointlist_px) > 1:
             try: pygame.draw.aalines(drawing_surface, final_trace_color_pygame[:3], False, pointlist_px) 
             except Exception as e_draw: print(f"Erreur Pygame draw.aalines: {e_draw}")
@@ -171,7 +179,8 @@ def draw_flower_pygame_progressive(drawing_surface, flower_data, flowersizeratio
     size_for_scatter_mpl_scalar = current_size_mpl - np.random.uniform(0,0.00002)*np.random.uniform(flowersizeratiomin,flowersizeratiomax)
     current_color_01 = modify_color_original_logic(current_color_01) 
     final_scatter_color_pygame = rgb_01_to_pygame_color(current_color_01) 
-    for i in range(0, len(flower_x_mpl_array), 5): 
+    # Utiliser les points de la dernière trace calculée (qui a maintenant num_points_per_trace points)
+    for i in range(0, len(flower_x_mpl_array), 5): # Itérer sur les points de la dernière trace
         base_x_scatter_mpl = flower_x_mpl_array[i]
         base_y_scatter_mpl = flower_y_mpl_array[i]
         offset_x_mpl = np.random.uniform(-0.0005,0.0005)*np.random.uniform(flowersizeratiomin,flowersizeratiomax)
@@ -265,7 +274,7 @@ def generate_image_very_progressive(num_dots, nbsegments, nbsubsegments, nbsubse
 
 # --- Interface Streamlit ---
 st.set_page_config(layout="wide") 
-st.title("Générateur d'Art Floral - Streamlit (Affichage Très Progressif)")
+st.title("Générateur d'Art Floral - Streamlit (Affichage Très Très Progressif)")
 st.markdown("Ajustez les paramètres et cliquez sur 'Générer'. L'image sera mise à jour très fréquemment.")
 
 # Sidebar pour les paramètres
@@ -286,7 +295,6 @@ if st.sidebar.button("Générer l'Image"):
     image_placeholder.info("Initialisation de la génération...")
     
     # Itérer sur le générateur pour obtenir les images intermédiaires
-    # Utiliser un compteur simple pour la légende, car le nombre total d'étapes est variable
     step_count = 0 
     for intermediate_image_array in generate_image_very_progressive(
         num_dots=num_dots_input,
@@ -303,8 +311,7 @@ if st.sidebar.button("Générer l'Image"):
     
     # Afficher un message de succès à la fin
     st.success("Génération terminée !")
-    # La dernière image reste affichée dans le placeholder avec une légende finale si désiré
-    # image_placeholder.image(intermediate_image_array, caption="Image Finale Générée", use_container_width=True) 
+    # La dernière image reste affichée dans le placeholder 
 
 else:
     # Message initial 
